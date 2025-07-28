@@ -6,9 +6,11 @@ import {
   getImageById, 
   unlockImage, 
   updateImage, 
-  deleteImage 
+  deleteImage,
+  listS3Images,
+  downloadImage 
 } from '../controllers/image.controller';
-import { isAuthenticated } from '../middleware/auth';
+import { isAuthenticated, isAdmin } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -31,6 +33,8 @@ const upload = multer({
 // Public routes
 router.get('/', getImages);
 router.get('/:id', getImageById);
+router.get('/s3-images', listS3Images);
+router.get('/download/:id', downloadImage);
 
 // Protected routes (require authentication)
 router.post('/unlock/:id', isAuthenticated, unlockImage);
@@ -39,12 +43,12 @@ router.post('/unlock/:id', isAuthenticated, unlockImage);
 router.post(
   '/upload', 
   isAuthenticated, 
-  // isAdmin, // Uncomment if you implement this
+  isAdmin, // Now enabled
   upload.single('file'), // <-- changed from 'image' to 'file'
   uploadImage
 );
 
-router.put('/:id', isAuthenticated, /* isAdmin, */ updateImage);
-router.delete('/:id', isAuthenticated, /* isAdmin, */ deleteImage);
+router.put('/:id', isAuthenticated, updateImage);
+router.delete('/:id', isAuthenticated, deleteImage);
 
 export default router;

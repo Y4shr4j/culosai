@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import Navbar from "../../components/Navbar";
 import { Link } from "react-router-dom";
-import { Copy, Languages, X } from "lucide-react";
+import { Copy, Languages, X, Lock, Unlock } from "lucide-react";
 import { get, post } from "../../src/utils/api";
+import ImageGallery from "../../components/ImageGallery";
+import { useAuth } from "../../src/contexts/AuthContext";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -37,6 +39,8 @@ const Dashboard: React.FC = () => {
   const [user, setUser] = useState(null);
   const [tokens, setTokens] = useState<number | null>(null);
   const [isUserBoxOpen, setIsUserBoxOpen] = useState(false);
+  const [images, setImages] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -61,6 +65,47 @@ const Dashboard: React.FC = () => {
     };
     fetchTokens();
   }, []);
+
+  // Fetch images for dashboard
+  useEffect(() => {
+    const fetchImages = async () => {
+      try {
+        setLoading(true);
+        console.log('Fetching images...');
+        const response = await get('/api/images') as any;
+        console.log('API response:', response);
+        
+        const imagesWithUnlockStatus = response.images || [];
+        console.log('Images from API:', imagesWithUnlockStatus);
+        
+        // If user is logged in, check which images they've unlocked
+        if (user) {
+          console.log('User is logged in, checking unlock status...');
+          const userResponse = await get('/api/auth/me') as any;
+          console.log('User response:', userResponse);
+          const unlockedImageIds = userResponse.unlockedImages?.map((unlocked: any) => unlocked.imageId) || [];
+          console.log('Unlocked image IDs:', unlockedImageIds);
+          
+          // Mark images as unlocked if user has unlocked them
+          const processedImages = imagesWithUnlockStatus.map((image: any) => ({
+            ...image,
+            isUnlocked: unlockedImageIds.includes(image._id)
+          }));
+          
+          console.log('Processed images:', processedImages);
+          setImages(processedImages);
+        } else {
+          console.log('No user logged in, setting images without unlock status');
+          setImages(imagesWithUnlockStatus);
+        }
+      } catch (error) {
+        console.error('Error fetching images:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchImages();
+  }, [user]);
 
   const handleLogout = async () => {
     try {
@@ -184,21 +229,21 @@ const Dashboard: React.FC = () => {
     {
       id: "20-tokens",
       tokens: 20,
-      price: 9.99,
+      price: 1.00, // $1 for 20 tokens (1 token per image)
       image:
         "https://cdn.builder.io/api/v1/image/assets/TEMP/e09c95510744d73cfc34946b0c0d258ff0f301bd?width=200",
     },
     {
       id: "50-tokens",
       tokens: 50,
-      price: 24.99,
+      price: 2.50, // $2.50 for 50 tokens
       image:
         "https://cdn.builder.io/api/v1/image/assets/TEMP/f62e9b0760abc723b722adfef447297f3c3c46a0?width=200",
     },
     {
       id: "100-tokens",
       tokens: 100,
-      price: 49.99,
+      price: 5.00, // $5 for 100 tokens
       image:
         "https://cdn.builder.io/api/v1/image/assets/TEMP/596554b5957d7af1cbe3bfc77e88d995b06ba5d8?width=200",
     },
@@ -207,10 +252,69 @@ const Dashboard: React.FC = () => {
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<"paypal" | "crypto" | null>(null);
+  const [selectedImage, setSelectedImage] = useState<any>(null);
+  const [showImagePreview, setShowImagePreview] = useState(false);
 
   const handleTokenPurchase = (packageId: string) => {
     setSelectedPackage(packageId);
     setShowPaymentModal(true);
+  };
+
+  const handleUnlockImage = async (imageId: string) => {
+    try {
+      const response = await post(`/api/images/unlock/${imageId}`);
+      console.log('Unlock response:', response);
+      
+      // Update the image's unlocked status in the local state
+      setImages(prevImages =>
+        prevImages.map(img =>
+          img._id === imageId ? { 
+            ...img, 
+            isUnlocked: true, 
+            isBlurred: false,
+            unlockCount: (img.unlockCount || 0) + 1
+          } : img
+        )
+      );
+      
+      // Refresh tokens
+      const data = await get<{ tokens: number }>('/api/auth/tokens');
+      setTokens(data.tokens);
+    } catch (error) {
+      console.error('Error unlocking image:', error);
+      // Show error message to user
+      alert('Failed to unlock image. Please try again.');
+    }
+  };
+
+  const handleImageClick = (image: any) => {
+    setSelectedImage(image);
+    setShowImagePreview(true);
+  };
+
+  const handleDownloadImage = async (imageUrl: string, fileName: string, imageId: string) => {
+    try {
+      // Use backend download endpoint to avoid CORS issues
+      const response = await fetch(`/api/images/download/${imageId}`);
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } else {
+        // Fallback: open in new tab for manual download
+        window.open(imageUrl, '_blank');
+      }
+    } catch (error) {
+      console.error('Error downloading image:', error);
+      // Fallback: open in new tab for manual download
+      window.open(imageUrl, '_blank');
+    }
   };
 
   const PaymentModal = () => (
@@ -288,6 +392,67 @@ const Dashboard: React.FC = () => {
           >
             Continue
           </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const ImagePreviewModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+      <div className="bg-culosai-dark-grey border border-culosai-accent-gold rounded-lg p-4 w-full max-w-5xl h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-4 flex-shrink-0">
+          <h3 className="text-culosai-cream font-norwester text-lg">
+            {selectedImage?.title || 'Image Preview'}
+          </h3>
+          <button
+            onClick={() => setShowImagePreview(false)}
+            className="text-culosai-accent-gold hover:text-culosai-cream transition-colors"
+          >
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        {/* Image Container - Fixed height with scroll if needed */}
+        <div className="flex-1 overflow-auto flex items-center justify-center p-4">
+          <img
+            src={selectedImage?.url}
+            alt={selectedImage?.title}
+            className="max-w-full max-h-full object-contain"
+            style={{
+              filter: selectedImage?.isBlurred && !selectedImage?.isUnlocked 
+                ? 'blur(8px)' 
+                : 'none'
+            }}
+          />
+        </div>
+        
+        {/* Actions - Always visible at bottom */}
+        <div className="flex justify-center gap-4 mt-4 flex-shrink-0">
+                      <button
+              onClick={() => handleDownloadImage(selectedImage?.url, selectedImage?.title || 'image', selectedImage?._id)}
+              className="bg-culosai-accent-gold hover:bg-culosai-accent-gold/80 text-culosai-dark-brown font-medium py-2 px-4 rounded-lg transition-colors flex items-center gap-2"
+            >
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Download
+          </button>
+          
+          {selectedImage?.isBlurred && !selectedImage?.isUnlocked && (
+            <button
+              onClick={() => {
+                handleUnlockImage(selectedImage._id);
+                setShowImagePreview(false);
+              }}
+              className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Unlock className="w-4 h-4" />
+              Unlock Image
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -501,6 +666,100 @@ const Dashboard: React.FC = () => {
                 ))}
               </div>
             </div>
+
+            {/* Image Gallery Section */}
+            <div className="space-y-6">
+              <div className="text-center">
+                <h2 className="text-culosai-cream font-norwester text-2xl md:text-3xl mb-4">
+                  Gallery Images
+                </h2>
+                <p className="text-culosai-accent-gold font-norwester text-sm md:text-base">
+                  Unlock images with tokens to remove blur effect
+                </p>
+              </div>
+              
+              {loading ? (
+                <div className="text-center text-culosai-cream">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-culosai-accent-gold mx-auto"></div>
+                  <p className="mt-4">Loading images...</p>
+                </div>
+              ) : images.length === 0 ? (
+                <div className="text-center text-culosai-cream">
+                  <p className="text-lg">No images found</p>
+                  <p className="text-sm text-culosai-accent-gold">Upload some images from the admin panel</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {images.map((image) => {
+                    console.log('Image data:', {
+                      id: image._id,
+                      title: image.title,
+                      isBlurred: image.isBlurred,
+                      isUnlocked: image.isUnlocked,
+                      url: image.url
+                    });
+                    return (
+                    <div key={image._id} className="relative group overflow-hidden rounded-lg shadow-lg bg-[#171717] cursor-pointer" onClick={() => handleImageClick(image)}>
+                      <div 
+                        className="relative aspect-square overflow-hidden"
+                        style={{
+                          filter: image.isBlurred && !image.isUnlocked 
+                            ? `blur(8px)` // 80% blur effect
+                            : 'none',
+                          transition: 'filter 0.3s ease-in-out'
+                        }}
+                      >
+                        <img
+                          src={image.url}
+                          alt={image.title}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          loading="lazy"
+                          onError={(e) => {
+                            console.error('Image failed to load:', image.url);
+                            console.error('Image element:', e.currentTarget);
+                            console.error('Full image object:', image);
+                            e.currentTarget.style.display = 'none';
+                          }}
+                          onLoad={() => {
+                            console.log('Image loaded successfully:', image.url);
+                          }}
+                        />
+                        
+                        {image.isBlurred && !image.isUnlocked && (
+                          <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col items-center justify-center p-4 text-center text-white">
+                            <Lock className="w-8 h-8 mb-2" />
+                            <p className="font-semibold text-sm">Unlock for {image.unlockPrice} token{image.unlockPrice !== 1 ? 's' : ''}</p>
+                            <button
+                              onClick={() => handleUnlockImage(image._id)}
+                              className="mt-2 bg-culosai-accent-gold hover:bg-culosai-accent-gold/80 text-culosai-dark-brown font-medium py-1 px-3 rounded-full text-xs transition-colors"
+                              disabled={!user}
+                            >
+                              {user ? 'Unlock Image' : 'Login to Unlock'}
+                            </button>
+                          </div>
+                        )}
+                        
+                        {image.isUnlocked && (
+                          <div className="absolute bottom-2 right-2 bg-green-500 text-white p-1 rounded-full">
+                            <Unlock className="w-4 h-4" />
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="p-3">
+                        <h3 className="text-culosai-cream font-norwester text-sm font-semibold truncate">
+                          {image.title}
+                        </h3>
+                        <p className="text-culosai-accent-gold font-norwester text-xs">
+                          {image.isBlurred ? 'Blurred' : 'Unlocked'}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </main>
@@ -664,6 +923,7 @@ const Dashboard: React.FC = () => {
         </div>
       )}
       {showPaymentModal && <PaymentModal />}
+      {showImagePreview && <ImagePreviewModal />}
     </div>
   );
 };

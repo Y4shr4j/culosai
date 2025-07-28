@@ -12,6 +12,7 @@ import multer from "multer";
 import session from "cookie-session";
 import passport from "./config/auth";
 import authRoutes from "./routes/auth.routes";
+import imageRoutes from './routes/image.routes';
 
 // Add MulterRequest interface for type safety
 interface MulterRequest extends Request {
@@ -47,6 +48,7 @@ connectDB();
 
 // Use auth routes
 app.use("/api/auth", authRoutes);
+app.use('/api/images', imageRoutes);
 
 // Add direct callback routes for OAuth (in case Google redirects to /auth instead of /api/auth)
 app.get("/auth/google/callback", passport.authenticate('google', { 

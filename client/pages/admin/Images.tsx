@@ -44,6 +44,33 @@ export default function Images() {
     }
   };
 
+  const toggleBlur = async (imageId: string, currentBlur: boolean) => {
+    try {
+      await api.put(`/api/images/${imageId}`, {
+        isBlurred: !currentBlur
+      });
+      setImages(images.map(img => 
+        img._id === imageId 
+          ? { ...img, isBlurred: !currentBlur } 
+          : img
+      ));
+    } catch (err) {
+      console.error('Error toggling blur:', err);
+      setError('Failed to update image');
+    }
+  };
+
+  const deleteImage = async (imageId: string) => {
+    if (!window.confirm('Delete this image?')) return;
+    try {
+      await api.delete(`/api/images/${imageId}`);
+      setImages(images.filter(img => img._id !== imageId));
+    } catch (err) {
+      console.error('Delete error:', err);
+      setError('Failed to delete image');
+    }
+  };
+
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
@@ -151,7 +178,7 @@ export default function Images() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {images.map((img: any) => (
-                  <div key={img.id || img._id} className="border rounded-lg p-2 flex flex-col items-center">
+                  <div key={img.id || img._id} className="border rounded-lg p-2 flex flex-col items-center relative">
                     <div className="w-32 h-32 mb-2 overflow-hidden rounded">
                       <img
                         src={img.url}
@@ -160,18 +187,33 @@ export default function Images() {
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     </div>
-                    <div className="font-medium mb-1">{img.title || "(No title)"}</div>
+                    <div className="font-medium mb-1 text-center">{img.title || "(No title)"}</div>
                     <div className="flex items-center gap-2 mb-2">
                       <label className="flex items-center gap-1 text-sm">
                         <input
                           type="checkbox"
                           checked={img.isBlurred}
-                          readOnly
+                          onChange={() => toggleBlur(img._id, img.isBlurred)}
                         />
                         Blurred
                       </label>
                     </div>
-                    {/* Blur toggle and delete will be added next */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => toggleBlur(img._id, img.isBlurred)}
+                        className={`px-2 py-1 text-xs rounded ${
+                          img.isBlurred ? 'bg-yellow-500' : 'bg-green-500'
+                        } text-white`}
+                      >
+                        {img.isBlurred ? 'Unblur' : 'Blur'}
+                      </button>
+                      <button
+                        onClick={() => deleteImage(img._id)}
+                        className="px-2 py-1 text-xs rounded bg-red-500 text-white"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -95,8 +95,35 @@ const Navbar: React.FC<NavbarProps> = ({ user, tokens, onLogout }) => {
         </nav>
       </div>
 
-      {/* Right side - Tokens and Profile */}
+      {/* Right side - Admin Button, Tokens and Profile */}
       <div className="flex items-center gap-4 relative">
+        {/* Admin Button - Only visible to admin users */}
+        {user?.isAdmin && (
+          <Link
+            to="/admin"
+            className="flex items-center gap-2 px-4 py-2 bg-culosai-dark-brown hover:bg-culosai-dark-brown/80 rounded-[20px] border border-culosai-accent-gold transition-colors"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              className="text-culosai-accent-gold"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+              />
+            </svg>
+            <span className="text-culosai-accent-gold font-norwester text-lg">
+              Admin
+            </span>
+          </Link>
+        )}
+
         {/* Token Status Only */}
         <div className="flex items-center gap-2 px-4 py-2 bg-culosai-accent-gold rounded-[20px] border border-culosai-dark-brown">
           <img
@@ -172,6 +199,8 @@ const Navbar: React.FC<NavbarProps> = ({ user, tokens, onLogout }) => {
               </button>
               {tokenFeedback && <span className="text-green-400 text-xs ml-1">{tokenFeedback}</span>}
             </div>
+            
+            
             <button
               className="mt-4 px-4 py-2 bg-culosai-accent-gold text-culosai-dark-brown font-norwester rounded-lg hover:bg-culosai-accent-gold/80 transition-colors"
               onClick={onLogout}
@@ -222,6 +251,29 @@ const Navbar: React.FC<NavbarProps> = ({ user, tokens, onLogout }) => {
             >
               AI Character
             </Link>
+            {/* Admin Link - Only visible to admin users */}
+            {user?.isAdmin && (
+              <Link
+                to="/admin"
+                className="text-culosai-accent-gold font-norwester text-xl flex items-center gap-2"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                  />
+                </svg>
+                Admin Panel
+              </Link>
+            )}
           </nav>
         </div>
       )}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../utils/api';
-import { LockClosedIcon, LockOpenIcon } from '@heroicons/react/24/outline';
+import { Lock, Unlock } from 'lucide-react';
 
 interface Image {
   _id: string;
@@ -87,12 +87,18 @@ const ImageGallery: React.FC = () => {
                 src={image.url}
                 alt={image.title}
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                style={{
+                  filter: image.isBlurred && !image.isUnlocked 
+                    ? `blur(8px)` // 80% blur effect
+                    : 'none',
+                  transition: 'filter 0.3s ease-in-out'
+                }}
                 loading="lazy"
               />
               
               {image.isBlurred && !image.isUnlocked && (
                 <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col items-center justify-center p-4 text-center text-white">
-                  <LockClosedIcon className="w-12 h-12 mb-2" />
+                  <Lock className="w-12 h-12 mb-2" />
                   <p className="font-semibold">Unlock for {image.unlockPrice} token{image.unlockPrice !== 1 ? 's' : ''}</p>
                   <button
                     onClick={() => handleUnlockImage(image._id)}
@@ -106,7 +112,7 @@ const ImageGallery: React.FC = () => {
               
               {image.isUnlocked && (
                 <div className="absolute bottom-2 right-2 bg-green-500 text-white p-1 rounded-full">
-                  <LockOpenIcon className="w-4 h-4" />
+                  <Unlock className="w-4 h-4" />
                 </div>
               )}
             </div>

@@ -34,6 +34,8 @@ import GeneralIndex from "./pages/general/Index";
 import GeneralNotFound from "./pages/general/NotFound";
 
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
+import AgeVerificationModal from "./components/AgeVerificationModal";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +46,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <AgeVerificationModal />
           <Routes>
           <Route path="/" element={<AuthIndex />} />
           <Route path="/login" element={<AuthLogin />} />
@@ -51,16 +54,56 @@ const App = () => (
           <Route path="/auth/callback" element={<AuthCallback />} />
 
           {/* Admin Panel Routes */}
-          <Route path="/admin" element={<AdminIndex />} />
-          <Route path="/admin/ai-characters" element={<AdminAiCharacters />} />
-          <Route path="/admin/apisettings" element={<AdminApiSettings />} />
-          <Route path="/admin/categories" element={<AdminCategories />} />
-          <Route path="/admin/characters" element={<AdminCharacters />} />
-          <Route path="/admin/images" element={<AdminImages />} />
-          <Route path="/admin/posts" element={<AdminPosts />} />
-          <Route path="/admin/token-settings" element={<AdminTokenSettings />} />
-          <Route path="/admin/videos" element={<AdminVideos />} />
-          <Route path="/admin/*" element={<AdminNotFound />} />
+          <Route path="/admin" element={
+            <AdminRoute>
+              <AdminIndex />
+            </AdminRoute>
+          } />
+          <Route path="/admin/ai-characters" element={
+            <AdminRoute>
+              <AdminAiCharacters />
+            </AdminRoute>
+          } />
+          <Route path="/admin/apisettings" element={
+            <AdminRoute>
+              <AdminApiSettings />
+            </AdminRoute>
+          } />
+          <Route path="/admin/categories" element={
+            <AdminRoute>
+              <AdminCategories />
+            </AdminRoute>
+          } />
+          <Route path="/admin/characters" element={
+            <AdminRoute>
+              <AdminCharacters />
+            </AdminRoute>
+          } />
+          <Route path="/admin/images" element={
+            <AdminRoute>
+              <AdminImages />
+            </AdminRoute>
+          } />
+          <Route path="/admin/posts" element={
+            <AdminRoute>
+              <AdminPosts />
+            </AdminRoute>
+          } />
+          <Route path="/admin/token-settings" element={
+            <AdminRoute>
+              <AdminTokenSettings />
+            </AdminRoute>
+          } />
+          <Route path="/admin/videos" element={
+            <AdminRoute>
+              <AdminVideos />
+            </AdminRoute>
+          } />
+          <Route path="/admin/*" element={
+            <AdminRoute>
+              <AdminNotFound />
+            </AdminRoute>
+          } />
 
           {/* Chat Routes */}
           <Route path="/chat" element={<ChatIndex />} />
@@ -81,6 +124,8 @@ const App = () => (
           <Route path="/general" element={<GeneralIndex />} />
           <Route path="/general/*" element={<GeneralNotFound />} />
 
+
+          
           {/* Catch-all NotFound */}
           <Route path="*" element={<AuthNotFound />} />
         </Routes>

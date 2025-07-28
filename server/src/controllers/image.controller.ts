@@ -4,6 +4,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { ImageModel, IImage } from '../models/image';
 import { uploadToS3, deleteFromS3 } from '../utils/s3';
 import { UserModel } from '../models/user';
+import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
+import { Readable } from 'stream';
+
+const s3 = new S3Client({ region: process.env.AWS_REGION });
 
 export const uploadImage = async (req: Request, res: Response) => {
   try {
@@ -85,13 +89,13 @@ export const getImages = async (req: Request, res: Response) => {
     
     // For each image, check if the current user has unlocked it
     const imagesWithUnlockStatus = await Promise.all(images.map(async (image: IImage) => {
-      const imageObj = image.toObject();
+      const imageObj = image.toObject() as any;
       
       if (req.user) {
         const user = await UserModel.findById(req.user._id);
         if (user) {
           const isUnlocked = user.unlockedImages.some(
-            (unlocked) => unlocked.imageId.toString() === image._id.toString()
+            (unlocked) => unlocked.imageId.toString() === (image._id as any).toString()
           );
           imageObj.isUnlocked = isUnlocked;
         }
@@ -128,9 +132,9 @@ export const getImageById = async (req: Request, res: Response) => {
       const user = await UserModel.findById(req.user._id);
       if (user) {
         const isUnlocked = user.unlockedImages.some(
-          (unlocked) => unlocked.imageId.toString() === image._id.toString()
+          (unlocked) => unlocked.imageId.toString() === (image._id as any).toString()
         );
-        imageObj.isUnlocked = isUnlocked;
+        (imageObj as any).isUnlocked = isUnlocked;
       }
     }
     
@@ -182,7 +186,7 @@ export const unlockImage = async (req: Request, res: Response) => {
     
     // Add to unlocked images
     user.unlockedImages.push({
-      imageId: image._id,
+      imageId: image._id as any,
       unlockedAt: new Date()
     });
     
@@ -221,7 +225,8 @@ export const updateImage = async (req: Request, res: Response) => {
     }
     
     // Check if user is admin or the uploader
-    if (!req.user.isAdmin && image.uploadedBy.toString() !== req.user._id.toString()) {
+    const user = req.user as { _id: string; isAdmin: boolean };
+    if (!user.isAdmin && image.uploadedBy.toString() !== user._id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
     
@@ -232,7 +237,7 @@ export const updateImage = async (req: Request, res: Response) => {
     if (tags !== undefined) image.tags = Array.isArray(tags) ? tags : tags.split(',').map((t: string) => t.trim());
     if (isBlurred !== undefined) image.isBlurred = isBlurred === 'true' || isBlurred === true;
     if (blurIntensity !== undefined) image.blurIntensity = parseInt(blurIntensity);
-    if (unlockPrice !== undefined && req.user.isAdmin) image.unlockPrice = parseFloat(unlockPrice);
+    if (unlockPrice !== undefined && user.isAdmin) image.unlockPrice = parseFloat(unlockPrice);
     
     await image.save();
     
@@ -257,7 +262,8 @@ export const deleteImage = async (req: Request, res: Response) => {
     }
     
     // Check if user is admin or the uploader
-    if (!req.user.isAdmin && image.uploadedBy.toString() !== req.user._id.toString()) {
+    const user = req.user as { _id: string; isAdmin: boolean };
+    if (!user.isAdmin && image.uploadedBy.toString() !== user._id.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
     
@@ -265,11 +271,77 @@ export const deleteImage = async (req: Request, res: Response) => {
     await deleteFromS3(image.url);
     
     // Delete the record
-    await image.remove();
+    await image.deleteOne();
     
     res.json({ message: 'Image deleted successfully' });
   } catch (error) {
     console.error('Delete image error:', error);
     res.status(500).json({ message: 'Error deleting image' });
+  }
+};
+
+export const listS3Images = async (req: Request, res: Response) => {
+  // Fix: ensure prefix is a string
+  const prefix = typeof req.query.prefix === "string" ? req.query.prefix : "ChatImage/";
+  const bucket = process.env.AWS_S3_BUCKET;
+
+  try {
+    const command = new ListObjectsV2Command({
+      Bucket: bucket,
+      Prefix: prefix,
+    });
+    const data = await s3.send(command);
+
+    const region = process.env.AWS_REGION;
+    const urls = (data.Contents || []).map(obj =>
+      `https://${bucket}.s3.${region}.amazonaws.com/${obj.Key}`
+    );
+
+    res.json({ urls });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to list images", details: err });
+  }
+};
+
+export const downloadImage = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const image = await ImageModel.findById(id);
+    if (!image) {
+      return res.status(404).json({ message: 'Image not found' });
+    }
+    
+    // Extract the key from the full URL
+    const url = new URL(image.url);
+    const key = url.pathname.substring(1); // Remove leading slash
+    
+    // Get the object from S3
+    const { GetObjectCommand } = await import('@aws-sdk/client-s3');
+    const command = new GetObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET,
+      Key: key,
+    });
+    
+    const s3Response = await s3.send(command);
+    
+    if (!s3Response.Body) {
+      return res.status(404).json({ message: 'Image not found in S3' });
+    }
+    
+    // Set headers for download
+    res.setHeader('Content-Type', image.mimeType);
+    res.setHeader('Content-Disposition', `attachment; filename="${image.title || 'image'}"`);
+    
+    // Convert to buffer and send
+    const chunks: Buffer[] = [];
+    for await (const chunk of s3Response.Body as any) {
+      chunks.push(chunk);
+    }
+    const buffer = Buffer.concat(chunks);
+    res.send(buffer);
+  } catch (error) {
+    console.error('Download image error:', error);
+    res.status(500).json({ message: 'Error downloading image' });
   }
 };
