@@ -6,6 +6,7 @@ import {
   FileText,
   Sparkles,
   DollarSign,
+  Activity,
   Circle,
   ChevronDown,
   ChevronRight,
@@ -38,6 +39,11 @@ const navigationItems = [
     title: "Token Settings",
     href: "/admin/token-settings",
     icon: DollarSign,
+  },
+  {
+    title: "Transactions",
+    href: "/admin/transactions",
+    icon: Activity,
   },
 ];
 

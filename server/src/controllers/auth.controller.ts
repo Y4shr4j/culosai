@@ -84,9 +84,10 @@ export const socialAuthCallback = (req: Request, res: Response) => {
     // Generate JWT token
     const token = generateToken((req.user._id as any).toString());
     
-    // Redirect to frontend with token
+    // Redirect to frontend with token and user info
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
-    const redirectUrl = `${frontendUrl}/auth/callback?token=${token}&userId=${req.user._id}`;
+    const userStr = encodeURIComponent(JSON.stringify(req.user));
+    const redirectUrl = `${frontendUrl}/auth/callback?token=${token}&user=${userStr}`;
     console.log('Redirecting to:', redirectUrl);
     res.redirect(redirectUrl);
   } catch (error) {

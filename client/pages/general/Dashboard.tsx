@@ -5,8 +5,10 @@ import { Copy, Languages, X, Lock, Unlock } from "lucide-react";
 import { get, post } from "../../src/utils/api";
 import ImageGallery from "../../components/ImageGallery";
 import { useAuth } from "../../src/contexts/AuthContext";
+import { PayPalButtons } from "@paypal/react-paypal-js";
+import { OnApproveData, CreateOrderData } from "@paypal/paypal-js";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 interface FilterOption {
   id: string;
@@ -42,81 +44,69 @@ const Dashboard: React.FC = () => {
   const [images, setImages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<any>(null);
+  const [showImagePreview, setShowImagePreview] = useState(false);
+  const [unlockingImageId, setUnlockingImageId] = useState<string | null>(null);
+
+  const { logout, user: authUser, token, loading: authLoading } = useAuth();
+
+  // Fetch user data and tokens on component mount
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchUserData = async () => {
       try {
-        const data = await get('/api/auth/me');
-        setUser(data);
+        if (token && !authLoading) {
+          console.log('Fetching user data with token:', token);
+          // Fetch user data (includes tokens)
+          const userData = await get<any>('/auth/me');
+          console.log('User data received:', userData);
+          console.log('User tokens:', userData.tokens);
+          setTokens(userData.tokens || 0);
+          setUser(userData);
+        } else {
+          console.log('No token available or auth still loading');
+        }
       } catch (error) {
-        console.error('Error fetching user:', error);
+        console.error('Error fetching user data:', error);
       }
     };
-    fetchUser();
-  }, []);
 
-  useEffect(() => {
-    const fetchTokens = async () => {
-      try {
-        const data = await get<{ tokens: number }>('/api/auth/tokens');
-        setTokens(data.tokens);
-      } catch (error) {
-        console.error('Error fetching tokens:', error);
-      }
-    };
-    fetchTokens();
-  }, []);
+    fetchUserData();
+  }, [token, authUser, authLoading]);
 
-  // Fetch images for dashboard
+  // Fetch images on component mount
   useEffect(() => {
     const fetchImages = async () => {
       try {
         setLoading(true);
         console.log('Fetching images...');
-        const response = await get('/api/images') as any;
-        console.log('API response:', response);
-        
-        const imagesWithUnlockStatus = response.images || [];
-        console.log('Images from API:', imagesWithUnlockStatus);
-        
-        // If user is logged in, check which images they've unlocked
-        if (user) {
-          console.log('User is logged in, checking unlock status...');
-          const userResponse = await get('/api/auth/me') as any;
-          console.log('User response:', userResponse);
-          const unlockedImageIds = userResponse.unlockedImages?.map((unlocked: any) => unlocked.imageId) || [];
-          console.log('Unlocked image IDs:', unlockedImageIds);
-          
-          // Mark images as unlocked if user has unlocked them
-          const processedImages = imagesWithUnlockStatus.map((image: any) => ({
-            ...image,
-            isUnlocked: unlockedImageIds.includes(image._id)
-          }));
-          
-          console.log('Processed images:', processedImages);
-          setImages(processedImages);
-        } else {
-          console.log('No user logged in, setting images without unlock status');
-          setImages(imagesWithUnlockStatus);
-        }
+        const response = await get<any>('/images');
+        console.log('Images data received:', response);
+        // Handle the response structure: { images: [...] }
+        const imagesArray = response.images || response || [];
+        console.log('Images array:', imagesArray);
+        setImages(imagesArray);
       } catch (error) {
         console.error('Error fetching images:', error);
+        setImages([]);
       } finally {
         setLoading(false);
       }
     };
+
     fetchImages();
-  }, [user]);
+  }, []);
 
   const handleLogout = async () => {
     try {
-      await post('/api/auth/logout');
+      await logout();
       setUser(null);
       setTokens(null);
       localStorage.removeItem('token');
       window.location.href = "/login";
     } catch (error) {
       console.error('Error logging out:', error);
-      // Still redirect even if logout fails
       localStorage.removeItem('token');
       window.location.href = "/login";
     }
@@ -249,20 +239,36 @@ const Dashboard: React.FC = () => {
     },
   ];
 
-  const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<"paypal" | "crypto" | null>(null);
-  const [selectedImage, setSelectedImage] = useState<any>(null);
-  const [showImagePreview, setShowImagePreview] = useState(false);
-
   const handleTokenPurchase = (packageId: string) => {
     setSelectedPackage(packageId);
     setShowPaymentModal(true);
   };
 
+  const handlePaymentSuccess = async () => {
+    // Refresh tokens after successful payment
+    const userData = await get<any>("/auth/me");
+    setTokens(userData.tokens);
+    // Close modal after a short delay
+    setTimeout(() => {
+      setShowPaymentModal(false);
+      setSelectedPackage(null);
+    }, 2000);
+  };
+
   const handleUnlockImage = async (imageId: string) => {
     try {
-      const response = await post(`/api/images/unlock/${imageId}`);
+      console.log('Unlocking image:', imageId);
+      setUnlockingImageId(imageId);
+      
+      // Check if image is already unlocked
+      const image = images.find(img => img._id === imageId);
+      if (image && image.isUnlocked) {
+        console.log('Image is already unlocked');
+        setUnlockingImageId(null);
+        return;
+      }
+      
+      const response = await post(`/images/unlock/${imageId}`);
       console.log('Unlock response:', response);
       
       // Update the image's unlocked status in the local state
@@ -278,16 +284,40 @@ const Dashboard: React.FC = () => {
       );
       
       // Refresh tokens
-      const data = await get<{ tokens: number }>('/api/auth/tokens');
-      setTokens(data.tokens);
-    } catch (error) {
+      const userData = await get<any>('/auth/me');
+      console.log('Updated user data after unlock:', userData);
+      setTokens(userData.tokens);
+    } catch (error: any) {
+      setUnlockingImageId(null);
       console.error('Error unlocking image:', error);
-      // Show error message to user
-      alert('Failed to unlock image. Please try again.');
+      
+      // Handle specific error cases
+      if (error.message && error.message.includes('already unlocked')) {
+        // If image is already unlocked, update the local state
+        setImages(prevImages =>
+          prevImages.map(img =>
+            img._id === imageId ? { 
+              ...img, 
+              isUnlocked: true, 
+              isBlurred: false
+            } : img
+          )
+        );
+        console.log('Image was already unlocked, updated local state');
+      } else if (error.message && error.message.includes('insufficient tokens')) {
+        // Handle insufficient tokens error
+        alert('You don\'t have enough tokens to unlock this image. Please purchase more tokens.');
+      } else {
+        // Show error message to user for other errors
+        alert('Failed to unlock image. Please try again.');
+      }
+    } finally {
+      setUnlockingImageId(null);
     }
   };
 
   const handleImageClick = (image: any) => {
+    console.log('Image clicked:', image);
     setSelectedImage(image);
     setShowImagePreview(true);
   };
@@ -295,7 +325,7 @@ const Dashboard: React.FC = () => {
   const handleDownloadImage = async (imageUrl: string, fileName: string, imageId: string) => {
     try {
       // Use backend download endpoint to avoid CORS issues
-      const response = await fetch(`/api/images/download/${imageId}`);
+      const response = await fetch(`${API_BASE_URL}/api/images/download/${imageId}`);
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -317,94 +347,173 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const PaymentModal = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-culosai-cream border border-culosai-brown rounded-[20px] md:rounded-[40px] p-4 md:p-8 w-full max-w-sm md:max-w-2xl">
-        <div className="flex flex-col items-center gap-8 md:gap-16">
-          {/* Header */}
-          <div className="flex flex-col items-start gap-4 md:gap-8 w-full">
-            <div className="flex flex-col items-center gap-3 w-full">
-              <div className="flex items-center gap-3 w-full">
-                <button
-                  onClick={() => setShowPaymentModal(false)}
-                  className="text-culosai-brown hover:text-culosai-dark-brown transition-colors"
-                >
-                  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <h2 className="font-norwester text-lg md:text-xl text-culosai-brown text-center flex-1">
-                  Cambio de Paquete
-                </h2>
+  const PaymentModal = ({ selectedPackage, onPaymentSuccess, onClose }: {
+    selectedPackage: string | null;
+    onPaymentSuccess: () => void;
+    onClose: () => void;
+  }) => {
+    const [selectedPayment, setSelectedPayment] = useState("paypal");
+    const [paymentLoading, setPaymentLoading] = useState(false);
+    const [paymentSuccess, setPaymentSuccess] = useState(false);
+    const [paymentError, setPaymentError] = useState<string | null>(null);
+
+    const getSelectedPackageInfo = () => tokenPackages.find(pkg => pkg.id === selectedPackage);
+
+    if (!selectedPackage) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="bg-culosai-cream border border-culosai-brown rounded-[20px] md:rounded-[40px] p-4 md:p-8 w-full max-w-sm md:max-w-2xl">
+          <div className="flex flex-col items-center gap-8 md:gap-16">
+            {/* Header */}
+            <div className="flex flex-col items-start gap-4 md:gap-8 w-full">
+              <div className="flex flex-col items-center gap-3 w-full">
+                <div className="flex items-center gap-3 w-full">
+                  <button
+                    onClick={onClose}
+                    className="text-culosai-brown hover:text-culosai-dark-brown transition-colors"
+                    disabled={paymentLoading}
+                  >
+                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  <h2 className="font-norwester text-lg md:text-xl text-culosai-brown text-center flex-1">
+                    Buy Tokens
+                  </h2>
+                </div>
+                <p className="font-norwester text-sm md:text-base text-culosai-rust">
+                  Select payment method
+                </p>
               </div>
-              <p className="font-norwester text-sm md:text-base text-culosai-rust">
-                Seleccionar metodo de pago
-              </p>
-            </div>
 
-            {/* Payment Methods */}
-            <div className="flex flex-col sm:flex-row justify-center items-center gap-4 md:gap-8 w-full">
-              <button
-                onClick={() => setSelectedPayment("paypal")}
-                className={`flex flex-col items-center justify-center w-full sm:w-[200px] md:w-[228px] h-[120px] md:h-[140px] rounded-xl border-2 transition-all ${
-                  selectedPayment === "paypal"
-                    ? "border-culosai-dark-brown bg-culosai-selected"
-                    : "border-culosai-dark-brown/50 bg-culosai-light-cream hover:border-culosai-dark-brown"
-                }`}
-              >
-                {/* Paypal SVG (copy from Index.tsx) */}
-                <svg
-                  width="121"
-                  height="34"
-                  viewBox="0 0 121 34"
-                  fill="none"
-                  className="flex-shrink-0"
+              {/* Payment Methods */}
+              <div className="flex flex-col sm:flex-row justify-center items-center gap-4 md:gap-8 w-full">
+                {selectedPayment === "paypal" ? (
+                  <div className="w-full">
+                    <PayPalButtons
+                      style={{ layout: "vertical", color: 'gold', shape: 'rect', label: 'paypal' }}
+                      disabled={paymentLoading || !selectedPackage}
+                      createOrder={async () => {
+                        setPaymentLoading(true);
+                        setPaymentError(null);
+                        try {
+                          const pkg = getSelectedPackageInfo();
+                          if (!pkg) throw new Error("Package not found");
+                          console.log('Creating PayPal order for package:', pkg);
+                          const res = await post<{ id: string }>("/payment/paypal/create-order", {
+                            packageId: pkg.id,
+                            amount: pkg.price.toFixed(2),
+                            currency: "USD"
+                          });
+                          console.log('PayPal order created:', res);
+                          setPaymentLoading(false);
+                          return res.id; // PayPal orderID
+                        } catch (err: any) {
+                          console.error('PayPal order creation failed:', err);
+                          setPaymentLoading(false);
+                          setPaymentError(err.message || "Failed to create PayPal order");
+                          throw err;
+                        }
+                      }}
+                      onApprove={async (data: any) => {
+                        setPaymentLoading(true);
+                        setPaymentError(null);
+                        try {
+                          const pkg = getSelectedPackageInfo();
+                          if (!pkg) throw new Error("Package not found");
+                          console.log('Capturing PayPal order:', data.orderID, 'for package:', pkg.id);
+                          await post<any>(
+                            "/payment/paypal/capture-order",
+                            {
+                              orderID: data.orderID,
+                              packageId: pkg.id
+                            }
+                          );
+                          console.log('PayPal order captured successfully');
+                          setPaymentLoading(false);
+                          setPaymentSuccess(true);
+                          onPaymentSuccess();
+                        } catch (err: any) {
+                          console.error('PayPal order capture failed:', err);
+                          setPaymentLoading(false);
+                          setPaymentError(err.message || "Failed to capture PayPal payment");
+                        }
+                      }}
+                      onError={(err: any) => {
+                        setPaymentLoading(false);
+                        setPaymentError("PayPal error: " + (err?.message || err));
+                      }}
+                      onCancel={() => {
+                        setPaymentLoading(false);
+                        setPaymentError("Payment cancelled");
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setSelectedPayment("paypal")}
+                    className={`flex flex-col items-center justify-center w-full sm:w-[200px] md:w-[228px] h-[120px] md:h-[140px] rounded-xl border-2 transition-all ${selectedPayment === "paypal"
+                        ? "border-culosai-dark-brown bg-culosai-selected"
+                        : "border-culosai-dark-brown/50 bg-culosai-light-cream hover:border-culosai-dark-brown"
+                      }`}
+                    disabled={paymentLoading}
+                  >
+                    {/* Paypal SVG */}
+                    <svg width="121" height="34" viewBox="0 0 121 34" fill="none" className="flex-shrink-0">
+                      <path
+                        d="M14.5033 0.501953H5.10273C4.45933 0.501953 3.9123 0.980941 3.81192 1.63183L0.00987164 26.331C-0.0657482 26.8182 0.302717 27.2578 0.785116 27.2578H5.27312C5.91641 27.2578 6.46344 26.779 6.56381 26.1268L7.58923 19.4651C7.68824 18.8129 8.23663 18.334 8.87856 18.334H11.8545C18.047 18.334 21.6208 15.2637 22.5543 9.17933C22.9748 6.51739 22.572 4.42597 21.3555 2.96123C20.0195 1.35267 17.6497 0.501953 14.5033 0.501953ZM15.5879 9.52303C15.0738 12.9793 12.4965 12.9793 10.0044 12.9793H8.58583L9.58099 6.52454C9.64014 6.13437 9.96997 5.84706 10.3549 5.84706H11.005C12.7026 5.84706 14.3041 5.84706 15.1315 6.83848C15.625 7.4301 15.7762 8.30891 15.5879 9.52303Z"
+                        fill="#283B82"
+                      />
+                      <path
+                        d="M14.5033 0.501953H5.10273C4.45933 0.501953 3.9123 0.980941 3.81192 1.63183L0.00987164 26.331C-0.0657482 26.8182 0.302717 27.2578 0.785116 27.2578H5.27312C5.91641 27.2578 6.46344 26.779 6.56381 26.1268L7.58923 19.4651C7.68824 18.8129 8.23663 18.334 8.87856 18.334H11.8545C18.047 18.334 21.6208 15.2637 22.5543 9.17933C22.9748 6.51739 22.572 4.42597 21.3555 2.96123C20.0195 1.35267 17.6497 0.501953 14.5033 0.501953ZM15.5879 9.52303C15.0738 12.9793 12.4965 12.9793 10.0044 12.9793H8.58583L9.58099 6.52454C9.64014 6.13437 9.96997 5.84706 10.3549 5.84706H11.005C12.7026 5.84706 14.3041 5.84706 15.1315 6.83848C15.625 7.4301 15.7762 8.30891 15.5879 9.52303Z"
+                        fill="#283B82"
+                      />
+                      <path
+                        d="M14.5033 0.501953H5.10273C4.45933 0.501953 3.9123 0.980941 3.81192 1.63183L0.00987164 26.331C-0.0657482 26.8182 0.302717 27.2578 0.785116 27.2578H5.27312C5.91641 27.2578 6.46344 26.779 6.56381 26.1268L7.58923 19.4651C7.68824 18.8129 8.23663 18.334 8.87856 18.334H11.8545C18.047 18.334 21.6208 15.2637 22.5543 9.17933C22.9748 6.51739 22.572 4.42597 21.3555 2.96123C20.0195 1.35267 17.6497 0.501953 14.5033 0.501953ZM15.5879 9.52303C15.0738 12.9793 12.4965 12.9793 10.0044 12.9793H8.58583L9.58099 6.52454C9.64014 6.13437 9.96997 5.84706 10.3549 5.84706H11.005C12.7026 5.84706 14.3041 5.84706 15.1315 6.83848C15.625 7.4301 15.7762 8.30891 15.5879 9.52303Z"
+                        fill="#283B82"
+                      />
+                    </svg>
+                  </button>
+                )}
+                <button
+                  onClick={() => setSelectedPayment("crypto")}
+                  className={`flex flex-col items-center justify-center w-full sm:w-[200px] md:w-[228px] h-[120px] md:h-[140px] rounded-xl border transition-all ${selectedPayment === "crypto"
+                      ? "border-culosai-dark-brown bg-culosai-selected border-2"
+                      : "border-culosai-dark-brown/50 bg-culosai-light-cream hover:border-culosai-dark-brown"
+                    }`}
+                  disabled={paymentLoading}
                 >
-                  <path d="M14.5033 0.501953H5.10273C4.45933 0.501953 3.9123 0.980941 3.81192 1.63183L0.00987164 26.331C-0.0657482 26.8182 0.302717 27.2578 0.785116 27.2578H5.27312C5.91641 27.2578 6.46344 26.779 6.56381 26.1268L7.58923 19.4651C7.68824 18.8129 8.23663 18.334 8.87856 18.334H11.8545C18.047 18.334 21.6208 15.2637 22.5543 9.17933C22.9748 6.51739 22.572 4.42597 21.3555 2.96123C20.0195 1.35267 17.6497 0.501953 14.5033 0.501953ZM15.5879 9.52303C15.0738 12.9793 12.4965 12.9793 10.0044 12.9793H8.58583L9.58099 6.52454C9.64014 6.13437 9.96997 5.84706 10.3549 5.84706H11.005C12.7026 5.84706 14.3041 5.84706 15.1315 6.83848C15.625 7.4301 15.7762 8.30891 15.5879 9.52303Z" fill="#283B82" />
-                  <path d="M14.5033 0.501953H5.10273C4.45933 0.501953 3.9123 0.980941 3.81192 1.63183L0.00987164 26.331C-0.0657482 26.8182 0.302717 27.2578 0.785116 27.2578H5.27312C5.91641 27.2578 6.46344 26.779 6.56381 26.1268L7.58923 19.4651C7.68824 18.8129 8.23663 18.334 8.87856 18.334H11.8545C18.047 18.334 21.6208 15.2637 22.5543 9.17933C22.9748 6.51739 22.572 4.42597 21.3555 2.96123C20.0195 1.35267 17.6497 0.501953 14.5033 0.501953ZM15.5879 9.52303C15.0738 12.9793 12.4965 12.9793 10.0044 12.9793H8.58583L9.58099 6.52454C9.64014 6.13437 9.96997 5.84706 10.3549 5.84706H11.005C12.7026 5.84706 14.3041 5.84706 15.1315 6.83848C15.625 7.4301 15.7762 8.30891 15.5879 9.52303Z" fill="#283B82" />
-                  <path d="M14.5033 0.501953H5.10273C4.45933 0.501953 3.9123 0.980941 3.81192 1.63183L0.00987164 26.331C-0.0657482 26.8182 0.302717 27.2578 0.785116 27.2578H5.27312C5.91641 27.2578 6.46344 26.779 6.56381 26.1268L7.58923 19.4651C7.68824 18.8129 8.23663 18.334 8.87856 18.334H11.8545C18.047 18.334 21.6208 15.2637 22.5543 9.17933C22.9748 6.51739 22.572 4.42597 21.3555 2.96123C20.0195 1.35267 17.6497 0.501953 14.5033 0.501953ZM15.5879 9.52303C15.0738 12.9793 12.4965 12.9793 10.0044 12.9793H8.58583L9.58099 6.52454C9.64014 6.13437 9.96997 5.84706 10.3549 5.84706H11.005C12.7026 5.84706 14.3041 5.84706 15.1315 6.83848C15.625 7.4301 15.7762 8.30891 15.5879 9.52303Z" fill="#283B82" />
-                </svg>
-              </button>
-              <button
-                onClick={() => setSelectedPayment("crypto")}
-                className={`flex flex-col items-center justify-center w-full sm:w-[200px] md:w-[228px] h-[120px] md:h-[140px] rounded-xl border transition-all ${
-                  selectedPayment === "crypto"
-                    ? "border-culosai-dark-brown bg-culosai-selected border-2"
-                    : "border-culosai-dark-brown/50 bg-culosai-light-cream hover:border-culosai-dark-brown"
-                }`}
-              >
-                <img
-                  src="https://cdn.builder.io/api/v1/image/assets/TEMP/39faec1ba29b02ea401235473c601b3758a75872?width=274"
-                  alt="Crypto accepted"
-                  className="w-[100px] h-[65px] md:w-[137px] md:h-[89px] rounded-[14px]"
-                />
-              </button>
+                  <img
+                    src="https://cdn.builder.io/api/v1/image/assets/TEMP/39faec1ba29b02ea401235473c601b3758a75872?width=274"
+                    alt="Crypto accepted"
+                    className="w-[100px] h-[65px] md:w-[137px] md:h-[89px] rounded-[14px]"
+                  />
+                </button>
+              </div>
             </div>
-          </div>
 
-          {/* Continue Button */}
-          <button
-            className="bg-culosai-dark-brown hover:bg-culosai-dark-brown/90 text-culosai-cream font-norwester text-xl md:text-2xl px-8 md:px-[70px] py-3 md:py-[14px] rounded-[10px] border border-black transition-all w-full sm:w-auto"
-            onClick={() => {
-              // Handle payment processing
-              setShowPaymentModal(false);
-              setSelectedPayment(null);
-              setSelectedPackage(null);
-            }}
-          >
-            Continue
-          </button>
+            {/* Payment Status Messages */}
+            <div className="w-full flex flex-col items-center mt-4 text-center">
+              {paymentLoading && <div className="text-culosai-brown mb-2">Processing payment...</div>}
+              {paymentSuccess && <div className="text-green-600 mb-2">Payment successful! Tokens credited.</div>}
+              {paymentError && <div className="text-red-600 mb-2">{paymentError}</div>}
+            </div>
+
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
-  const ImagePreviewModal = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-      <div className="bg-culosai-dark-grey border border-culosai-accent-gold rounded-lg p-4 w-full max-w-5xl h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-4 flex-shrink-0">
-          <h3 className="text-culosai-cream font-norwester text-lg">
-            {selectedImage?.title || 'Image Preview'}
-          </h3>
+  const ImagePreviewModal = () => {
+    console.log('Rendering ImagePreviewModal with selectedImage:', selectedImage);
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+        <div className="bg-culosai-dark-grey border border-culosai-accent-gold rounded-lg p-4 w-full max-w-5xl h-[90vh] flex flex-col">
+          {/* Header */}
+          <div className="flex justify-between items-center mb-4 flex-shrink-0">
+            <h3 className="text-culosai-cream font-norwester text-lg">
+              {selectedImage?.title || 'Image Preview'}
+            </h3>
           <button
             onClick={() => setShowImagePreview(false)}
             className="text-culosai-accent-gold hover:text-culosai-cream transition-colors"
@@ -443,20 +552,35 @@ const Dashboard: React.FC = () => {
           
           {selectedImage?.isBlurred && !selectedImage?.isUnlocked && (
             <button
-              onClick={() => {
-                handleUnlockImage(selectedImage._id);
-                setShowImagePreview(false);
+              onClick={async () => {
+                await handleUnlockImage(selectedImage._id);
+                // Don't close the modal immediately, let the user see the unlocked image
+                // The modal will update automatically when the image state changes
               }}
-              className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center gap-2"
+              className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+              disabled={unlockingImageId === selectedImage._id}
             >
               <Unlock className="w-4 h-4" />
-              Unlock Image
+              {unlockingImageId === selectedImage._id ? 'Unlocking...' : 'Unlock Image'}
             </button>
           )}
         </div>
       </div>
     </div>
   );
+  };
+
+  // Show loading state while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#2A2A2A] via-[#2A2A2A] to-[#513238] text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-culosai-accent-gold mx-auto"></div>
+          <p className="mt-4 text-culosai-cream">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#2A2A2A] via-[#2A2A2A] to-[#513238] text-white">
@@ -495,7 +619,7 @@ const Dashboard: React.FC = () => {
           {/* Feature Cards */}
           <div className="flex flex-col lg:flex-row items-center gap-6 lg:gap-8 mb-16">
             {/* Generate Images Card */}
-            <Link to="/aiimagegeneration" className="group">
+            <Link to="/aiimagegeneration" className="w-full lg:w-auto">
               <div className="flex flex-col items-center gap-3 p-6 md:p-8 bg-[#813521] rounded-[20px] hover:bg-[#913721] transition-colors w-full lg:w-auto">
                 <h2 className="text-culosai-cream font-norwester text-2xl md:text-[32px] text-center">
                   Generate Images
@@ -518,11 +642,16 @@ const Dashboard: React.FC = () => {
                       fill="#F5EDD0"
                     />
                     <path
-                      d="M1 27.1V3.9C1 2.29837 2.20539 1 3.69231 1H33.3077C34.7946 1 36 2.29837 36 3.9V27.1M1 27.1C1 28.7016 2.20539 30 3.69231 30H33.3077C34.7946 30 36 28.7016 36 27.1M1 27.1V23.797C1 23.124 1.25447 22.4759 1.71237 21.9827L10.2598 12.7759C11.8369 11.0771 14.3939 11.0771 15.971 12.7759M36 27.1V23.797C36 23.124 35.7455 22.4759 35.2876 21.9827L30.7787 17.1259C29.2016 15.4271 26.6446 15.4271 25.0675 17.1259L24.4928 17.7449C23.4377 18.8814 21.6392 18.8814 20.5842 17.7449L15.971 12.7759M15.971 12.7759L25.2308 22.75"
-                      stroke="#F5EDD0"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                      d="M9.6917 9.75541C12.0567 9.63316 12.2591 12.3867 10.0725 12.716C7.82817 12.8876 7.40079 10.151 9.6917 9.75541Z"
+                      fill="#F5EDD0"
+                    />
+                    <path
+                      d="M18.0414 9.75647C20.6581 9.71171 20.9154 12.1247 18.8349 12.7171C16.5304 12.9486 15.8856 10.6584 18.0414 9.75647Z"
+                      fill="#F5EDD0"
+                    />
+                    <path
+                      d="M27.1142 9.75491C29.2978 9.53694 29.7267 12.1856 27.5732 12.7155C25.1569 12.8646 24.8049 10.0267 27.1142 9.75491Z"
+                      fill="#F5EDD0"
                     />
                   </svg>
                 </div>
@@ -683,23 +812,30 @@ const Dashboard: React.FC = () => {
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-culosai-accent-gold mx-auto"></div>
                   <p className="mt-4">Loading images...</p>
                 </div>
-              ) : images.length === 0 ? (
+              ) : !Array.isArray(images) || images.length === 0 ? (
                 <div className="text-center text-culosai-cream">
                   <p className="text-lg">No images found</p>
                   <p className="text-sm text-culosai-accent-gold">Upload some images from the admin panel</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {images.map((image) => {
+                  {Array.isArray(images) && images.map((image) => {
+                    console.log('Rendering image:', image);
                     console.log('Image data:', {
                       id: image._id,
                       title: image.title,
                       isBlurred: image.isBlurred,
                       isUnlocked: image.isUnlocked,
-                      url: image.url
+                      url: image.url,
+                      unlockPrice: image.unlockPrice
                     });
                     return (
-                    <div key={image._id} className="relative group overflow-hidden rounded-lg shadow-lg bg-[#171717] cursor-pointer" onClick={() => handleImageClick(image)}>
+                    <div key={image._id} className={`relative group overflow-hidden rounded-lg shadow-lg bg-[#171717] ${(!image.isBlurred || image.isUnlocked) ? 'cursor-pointer' : 'cursor-default'}`} onClick={() => {
+                      // Only allow clicking if image is unlocked or not blurred
+                      if (!image.isBlurred || image.isUnlocked) {
+                        handleImageClick(image);
+                      }
+                    }}>
                       <div 
                         className="relative aspect-square overflow-hidden"
                         style={{
@@ -728,13 +864,16 @@ const Dashboard: React.FC = () => {
                         {image.isBlurred && !image.isUnlocked && (
                           <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col items-center justify-center p-4 text-center text-white">
                             <Lock className="w-8 h-8 mb-2" />
-                            <p className="font-semibold text-sm">Unlock for {image.unlockPrice} token{image.unlockPrice !== 1 ? 's' : ''}</p>
+                            <p className="font-semibold text-sm">Unlock for {image.unlockPrice || 1} token{(image.unlockPrice || 1) !== 1 ? 's' : ''}</p>
                             <button
-                              onClick={() => handleUnlockImage(image._id)}
-                              className="mt-2 bg-culosai-accent-gold hover:bg-culosai-accent-gold/80 text-culosai-dark-brown font-medium py-1 px-3 rounded-full text-xs transition-colors"
-                              disabled={!user}
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent image click
+                                handleUnlockImage(image._id);
+                              }}
+                              className="mt-2 bg-culosai-accent-gold hover:bg-culosai-accent-gold/80 text-culosai-dark-brown font-medium py-1 px-3 rounded-full text-xs transition-colors disabled:opacity-50"
+                              disabled={!user || unlockingImageId === image._id}
                             >
-                              {user ? 'Unlock Image' : 'Login to Unlock'}
+                              {unlockingImageId === image._id ? 'Unlocking...' : (user ? 'Unlock Image' : 'Login to Unlock')}
                             </button>
                           </div>
                         )}
@@ -922,7 +1061,11 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
-      {showPaymentModal && <PaymentModal />}
+      {showPaymentModal && <PaymentModal 
+        selectedPackage={selectedPackage}
+        onPaymentSuccess={handlePaymentSuccess}
+        onClose={() => setShowPaymentModal(false)}
+      />}
       {showImagePreview && <ImagePreviewModal />}
     </div>
   );

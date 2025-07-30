@@ -1,9 +1,8 @@
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { useAuth } from '../contexts/AuthContext';
 
 // Create axios instance with default config
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
+  baseURL: 'http://localhost:5000/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -37,7 +36,7 @@ api.interceptors.response.use(
       try {
         // Try to refresh the token
         const response = await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/auth/refresh-token`,
+          `http://localhost:5000/api/auth/refresh-token`,
           {},
           { withCredentials: true }
         );
@@ -72,9 +71,12 @@ const handleApiError = (error: any) => {
 // Wrapper functions for common HTTP methods
 const get = async <T>(url: string, config?: AxiosRequestConfig): Promise<T> => {
   try {
+    console.log('Making GET request to:', url);
     const response = await api.get<T>(url, config);
+    console.log('GET response for', url, ':', response.data);
     return response.data;
   } catch (error) {
+    console.error('GET request failed for', url, ':', error);
     return handleApiError(error);
   }
 };

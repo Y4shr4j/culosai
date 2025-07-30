@@ -32,19 +32,17 @@ const AgeVerificationModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-      {/* Changed border-yellow-400 to border-white */}
-      <div className="bg-culosai-dark-grey border border-white rounded-lg p-6 w-full max-w-md">
+      <div className="bg-culosai-dark-grey border border-yellow-400 rounded-lg p-6 w-full max-w-md">
         <div className="text-center">
           {/* Warning Icon */}
           <div className="mb-4">
-            {/* Changed text-yellow-400 to a brighter text-yellow-300 */}
             <svg
               width="48"
               height="48"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              className="text-yellow-300 mx-auto"
+              className="text-yellow-400 mx-auto"
             >
               <path
                 strokeLinecap="round"
@@ -56,17 +54,17 @@ const AgeVerificationModal: React.FC = () => {
           </div>
 
           {/* Title */}
-          <h2 className="text-yellow-300 font-norwester text-2xl mb-4">
+          <h2 className="text-yellow-400 font-norwester text-2xl mb-4">
             Age Verification Required
           </h2>
 
           {/* Content */}
-          <div className="text-yellow-300 font-norwester text-base mb-6 space-y-3">
+          <div className="text-yellow-400 font-norwester text-base mb-6 space-y-3">
             <p>
               This website contains content that may not be suitable for
               individuals under 18 years of age.
             </p>
-            <p className="text-yellow-300 font-semibold">
+            <p className="text-yellow-400 font-semibold">
               You must be at least 18 years old to access this site.
             </p>
             <p>
@@ -85,14 +83,14 @@ const AgeVerificationModal: React.FC = () => {
             </button>
             <button
               onClick={handleDecline}
-              className="flex-1 bg-culosai-dark-brown hover:bg-culosai-dark-brown/80 text-yellow-300 font-norwester py-3 px-6 rounded-lg transition-colors border border-white"
+              className="flex-1 bg-culosai-dark-brown hover:bg-culosai-dark-brown/80 text-yellow-400 font-norwester py-3 px-6 rounded-lg transition-colors border border-yellow-400"
             >
               I am under 18
             </button>
           </div>
 
-          {/* Disclaimer - Removed opacity-80 to make it more visible */}
-          <p className="text-yellow-300 text-xs mt-4">
+          {/* Disclaimer */}
+          <p className="text-yellow-400 text-xs mt-4 opacity-80">
             By proceeding, you acknowledge that you are of legal age and
             consent to viewing adult content.
           </p>

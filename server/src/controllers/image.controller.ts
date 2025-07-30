@@ -293,7 +293,7 @@ export const listS3Images = async (req: Request, res: Response) => {
     const data = await s3.send(command);
 
     const region = process.env.AWS_REGION;
-    const urls = (data.Contents || []).map(obj =>
+    const urls = (data.Contents || []).map((obj: { Key?: string }) =>
       `https://${bucket}.s3.${region}.amazonaws.com/${obj.Key}`
     );
 

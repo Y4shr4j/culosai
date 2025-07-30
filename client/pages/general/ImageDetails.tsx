@@ -20,6 +20,8 @@ const ImageDetails: React.FC = () => {
   const [promptCopied, setPromptCopied] = useState(false);
   const [user, setUser] = useState(null);
   const [tokens, setTokens] = useState<number | null>(null);
+  const [paypalLoaded, setPaypalLoaded] = useState(false);
+  const [paypalOrderId, setPaypalOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -46,6 +48,35 @@ const ImageDetails: React.FC = () => {
     };
     fetchTokens();
   }, []);
+
+  useEffect(() => {
+    // Check if PayPal script is already loaded
+    if (window.paypal) {
+      setPaypalLoaded(true);
+      return;
+    }
+
+    // If not, create and append the script
+    const script = document.createElement("script");
+    script.src = `https://www.paypal.com/sdk/js?client-id=Af2oJrZa-VH7OnzF3pvNtHhVF044E-9MJ1xWBM6837eYXEN7X-YBfn2fE41vOCug7UwtTYRCnzzmWrVS&currency=USD&debug=true`;
+    script.async = true;
+    script.onload = () => setPaypalLoaded(true);
+    document.body.appendChild(script);
+
+    // Cleanup: remove script if component unmounts
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (paypalLoaded) {
+      // Now you can safely use window.paypal
+      window.paypal.Buttons({
+        // ... your PayPal button config ...
+      }).render("#paypal-button-container");
+    }
+  }, [paypalLoaded]);
 
   const handleLogout = async () => {
     await fetch(`${API_BASE_URL}/api/auth/logout`, {

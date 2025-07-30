@@ -31,7 +31,7 @@ export const uploadToS3 = async (file: UploadedFile, folder: string = UPLOAD_FOL
   console.log('Secret Key:', process.env.AWS_SECRET_ACCESS_KEY ? 'SET' : 'NOT SET');
   console.log('UPLOAD_FOLDER env var:', process.env.AWS_S3_UPLOAD_FOLDER);
   console.log('UPLOAD_FOLDER used:', UPLOAD_FOLDER);
-
+  
   const command = new PutObjectCommand({
     Bucket: BUCKET_NAME,
     Key: key,
@@ -40,7 +40,7 @@ export const uploadToS3 = async (file: UploadedFile, folder: string = UPLOAD_FOL
   });
 
   try {
-    await s3Client.send(command);
+  await s3Client.send(command);
     console.log('>>> S3 UPLOAD SUCCESS <<<');
     // Return the full S3 URL instead of just the key
     const fullUrl = `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION || 'us-east-2'}.amazonaws.com/${key}`;

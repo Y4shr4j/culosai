@@ -6,7 +6,7 @@ import {
   getImageById, 
   unlockImage, 
   updateImage, 
-  deleteImage,
+  deleteImage, 
   listS3Images,
   downloadImage 
 } from '../controllers/image.controller';

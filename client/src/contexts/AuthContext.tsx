@@ -26,6 +26,7 @@ interface AuthContextType {
   logout: () => void;
   verifyAge: () => Promise<boolean>;
   updateUser: (userData: Partial<User>) => void;
+  setAuthData: (token: string, user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,14 +37,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Initialize auth state
   useEffect(() => {
     const initializeAuth = async () => {
       try {
         if (token) {
+          console.log('Initializing auth with token:', token);
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          const response = await api.get('/api/auth/me');
+          const response = await api.get('/auth/me');
+          console.log('Auth initialization successful, user data:', response.data);
           setUser(response.data);
+        } else {
+          console.log('No token found for auth initialization');
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
@@ -59,17 +63,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await api.post('/api/auth/login', { email, password });
+      console.log('Attempting login for:', email);
+      const response = await api.post('/auth/login', { email, password });
       const { token, user } = response.data;
-      
+      console.log('Login successful, user data:', user);
       localStorage.setItem('token', token);
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
       setToken(token);
       setUser(user);
-      
-      // Redirect to home or intended page
-      navigate('/');
+      navigate('/dashboard');
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -78,16 +80,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const register = async (name: string, email: string, password: string) => {
     try {
-      const response = await api.post('/api/auth/register', { name, email, password });
+      const response = await api.post('/auth/register', { name, email, password });
       const { token, user } = response.data;
-      
       localStorage.setItem('token', token);
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
       setToken(token);
       setUser(user);
-      
-      // Redirect to age verification or home
       if (!user.ageVerified) {
         navigate('/verify-age');
       } else {
@@ -99,11 +97,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const logout = () => {
+    localStorage.removeItem('token');
+    delete api.defaults.headers.common['Authorization'];
+    setUser(null);
+    setToken(null);
+    navigate('/login');
+  };
+
   const verifyAge = async (): Promise<boolean> => {
     try {
       if (!user) return false;
-      
-      const response = await api.post(`/api/auth/verify-age/${user._id}`, { isOver18: true });
+      const response = await api.post(`/auth/verify-age/${user._id}`, { isOver18: true });
       setUser(response.data.user);
       return true;
     } catch (error) {
@@ -112,18 +117,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    delete api.defaults.headers.common['Authorization'];
-    setToken(null);
-    setUser(null);
-    navigate('/login');
-  };
-
   const updateUser = (userData: Partial<User>) => {
     if (user) {
       setUser({ ...user, ...userData });
     }
+  };
+
+  const setAuthData = (newToken: string, newUser: User) => {
+    localStorage.setItem('token', newToken);
+    api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+    setToken(newToken);
+    setUser(newUser);
   };
 
   const value = {
@@ -135,6 +139,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     logout,
     verifyAge,
     updateUser,
+    setAuthData,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

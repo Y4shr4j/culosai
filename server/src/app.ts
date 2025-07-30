@@ -13,6 +13,8 @@ import session from "cookie-session";
 import passport from "./config/auth";
 import authRoutes from "./routes/auth.routes";
 import imageRoutes from './routes/image.routes';
+import paymentRoutes from './routes/payment.routes';
+import adminRoutes from './routes/admin.routes';
 
 // Add MulterRequest interface for type safety
 interface MulterRequest extends Request {
@@ -25,8 +27,16 @@ dotenv.config();
 // Init app
 const app = express();
 
+const whitelist = ["http://localhost:8080"];
+
 app.use(cors({
-  origin: "http://localhost:8080", // Use your frontend's URL
+  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    if (!origin || whitelist.indexOf(origin) !== -1) {
+      callback(null, true)
+    } else {
+      callback(new Error('Not allowed by CORS'))
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -49,6 +59,8 @@ connectDB();
 // Use auth routes
 app.use("/api/auth", authRoutes);
 app.use('/api/images', imageRoutes);
+app.use('/api/payment', paymentRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Add direct callback routes for OAuth (in case Google redirects to /auth instead of /api/auth)
 app.get("/auth/google/callback", passport.authenticate('google', { 

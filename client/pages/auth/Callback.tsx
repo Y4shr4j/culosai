@@ -1,33 +1,34 @@
 // client/pages/auth/Callback.tsx
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../src/contexts/AuthContext';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { setAuthData } = useAuth();
 
   useEffect(() => {
-    console.log("AuthCallback component mounted");
-    console.log("Current URL:", window.location.href);
-    
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
-    const userId = params.get("userId");
-    
-    console.log("Token:", token ? "Present" : "Missing");
-    console.log("UserId:", userId);
-    
-    if (token) {
-      localStorage.setItem("token", token);
-      console.log("Token stored in localStorage");
-      // Optionally fetch user info here
-      navigate("/dashboard"); // Redirect to dashboard instead of home
-    } else {
-      console.log("No token found, redirecting to login");
-      navigate("/login?error=oauth");
-    }
-  }, [navigate]);
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token');
+    const userParam = params.get('user');
 
-  return <div>Logging you in...</div>;
+    if (token && userParam) {
+      try {
+        const user = JSON.parse(userParam);
+        setAuthData(token, user);
+        navigate('/dashboard');
+      } catch (error) {
+        console.error('Failed to parse user data:', error);
+        navigate('/login?error=auth_failed');
+      }
+    } else {
+      console.error('Missing token or user data in callback');
+      navigate('/login?error=auth_failed');
+    }
+  }, [location, setAuthData, navigate]);
+
+  return <div>Loading...</div>;
 };
 
 export default AuthCallback;

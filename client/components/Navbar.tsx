@@ -42,9 +42,8 @@ const Navbar: React.FC<NavbarProps> = ({ user, tokens, onLogout }) => {
     setTokenLoading(true);
     setTokenFeedback("");
     try {
-      const response = await api.post("/api/auth/tokens/add", { amount: 10 });
-      setLocalTokens(response.data.tokens);
-      setTokenFeedback("Added!");
+      // This endpoint doesn't exist, so we'll just show a message
+      setTokenFeedback("Feature coming soon!");
       setTimeout(() => setTokenFeedback(""), 1500);
     } catch (error) {
       console.error("Error adding tokens:", error);

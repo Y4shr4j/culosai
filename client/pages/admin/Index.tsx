@@ -11,112 +11,128 @@ import {
   Plus,
   Download,
 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { api } from "../../src/utils/api";
 
-const metricsData = [
-  {
-    title: "Total Users",
-    value: "2,847",
-    change: "+12% from last month",
-    changeType: "positive" as const,
-    icon: Users,
-  },
-  {
-    title: "Revenue",
-    value: "$84,290",
-    change: "+8% from last month",
-    changeType: "positive" as const,
-    icon: DollarSign,
-  },
-  {
-    title: "Growth Rate",
-    value: "+23.4%",
-    change: "+2.1% from last month",
-    changeType: "positive" as const,
-    icon: TrendingUp,
-  },
-  {
-    title: "Active Sessions",
-    value: "1,432",
-    change: "-3% from last month",
-    changeType: "negative" as const,
-    icon: Activity,
-  },
-];
+interface AdminStats {
+  totalUsers: number;
+  newUsers: number;
+  totalImages: number;
+  blurredImages: number;
+  totalTransactions: number;
+  revenue: number;
+}
 
-const recentUsers = [
-  {
-    id: "1",
-    name: "John Doe",
-    email: "john@example.com",
-    status: "active" as const,
-    date: "2024-01-15",
-  },
-  {
-    id: "2",
-    name: "Jane Smith",
-    email: "jane@example.com",
-    status: "pending" as const,
-    date: "2024-01-14",
-  },
-  {
-    id: "3",
-    name: "Mike Johnson",
-    email: "mike@example.com",
-    status: "active" as const,
-    date: "2024-01-13",
-  },
-  {
-    id: "4",
-    name: "Sarah Wilson",
-    email: "sarah@example.com",
-    status: "inactive" as const,
-    date: "2024-01-12",
-  },
-];
+interface RecentTransaction {
+  _id: string;
+  user: {
+    name: string;
+    email: string;
+  };
+  type: string;
+  amount: number;
+  status: string;
+  createdAt: string;
+}
 
-const recentOrders = [
-  {
-    id: "1",
-    name: "Order #12345",
-    status: "active" as const,
-    date: "2024-01-15",
-    amount: "$299.00",
-  },
-  {
-    id: "2",
-    name: "Order #12346",
-    status: "pending" as const,
-    date: "2024-01-14",
-    amount: "$199.00",
-  },
-  {
-    id: "3",
-    name: "Order #12347",
-    status: "active" as const,
-    date: "2024-01-13",
-    amount: "$399.00",
-  },
-];
+interface UserGrowth {
+  date: string;
+  count: number;
+}
 
-const chartData = [
-  { name: "Jan", value: 400 },
-  { name: "Feb", value: 300 },
-  { name: "Mar", value: 600 },
-  { name: "Apr", value: 800 },
-  { name: "May", value: 500 },
-  { name: "Jun", value: 900 },
-];
-
-const lineChartData = [
-  { name: "Week 1", value: 120 },
-  { name: "Week 2", value: 190 },
-  { name: "Week 3", value: 300 },
-  { name: "Week 4", value: 250 },
-  { name: "Week 5", value: 400 },
-  { name: "Week 6", value: 350 },
-];
+interface AdminStatsResponse {
+  stats: AdminStats;
+  recentTransactions: RecentTransaction[];
+  userGrowth: UserGrowth[];
+}
 
 export default function Index() {
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [recentTransactions, setRecentTransactions] = useState<RecentTransaction[]>([]);
+  const [userGrowth, setUserGrowth] = useState<UserGrowth[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch admin stats
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/api/admin/stats');
+      const data: AdminStatsResponse = response.data;
+      
+      setStats(data.stats);
+      setRecentTransactions(data.recentTransactions);
+      setUserGrowth(data.userGrowth);
+    } catch (error) {
+      console.error('Error fetching admin stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  // Format metrics data
+  const metricsData = stats ? [
+    {
+      title: "Total Users",
+      value: stats.totalUsers.toLocaleString(),
+      change: `+${stats.newUsers} from last month`,
+      changeType: "positive" as const,
+      icon: Users,
+    },
+    {
+      title: "Revenue",
+      value: `$${stats.revenue.toFixed(2)}`,
+      change: "+8% from last month",
+      changeType: "positive" as const,
+      icon: DollarSign,
+    },
+    {
+      title: "Total Images",
+      value: stats.totalImages.toLocaleString(),
+      change: `${stats.blurredImages} blurred`,
+      changeType: "positive" as const,
+      icon: TrendingUp,
+    },
+    {
+      title: "Transactions",
+      value: stats.totalTransactions.toLocaleString(),
+      change: "All time",
+      changeType: "positive" as const,
+      icon: Activity,
+    },
+  ] : [];
+
+  // Format recent transactions for DataTable
+  const recentTransactionsData = recentTransactions.map((transaction) => ({
+    id: transaction._id,
+    name: `${transaction.user.name} - ${transaction.type}`,
+    status: transaction.status as "active" | "pending" | "inactive",
+    date: new Date(transaction.createdAt).toLocaleDateString(),
+    amount: `$${transaction.amount.toFixed(2)}`,
+  }));
+
+  // Format user growth for chart
+  const userGrowthChartData = userGrowth.map((item) => ({
+    name: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    value: item.count,
+  }));
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -156,14 +172,41 @@ export default function Index() {
 
         {/* Charts Row */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <ChartCard title="Monthly Revenue" data={chartData} type="bar" />
-          <ChartCard title="User Growth" data={lineChartData} type="area" />
+          <ChartCard 
+            title="User Growth (Last 7 Days)" 
+            data={userGrowthChartData} 
+            type="area" 
+          />
+          <ChartCard 
+            title="Revenue Overview" 
+            data={userGrowthChartData} 
+            type="bar" 
+          />
         </div>
 
         {/* Data Tables Row */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <DataTable title="Recent Users" data={recentUsers} />
-          <DataTable title="Recent Orders" data={recentOrders} />
+          <DataTable 
+            title="Recent Transactions" 
+            data={recentTransactionsData} 
+          />
+          <div className="bg-card rounded-lg border p-6">
+            <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+            <div className="space-y-3">
+              <Button className="w-full justify-start" variant="outline">
+                <Users className="h-4 w-4 mr-2" />
+                Manage Users
+              </Button>
+              <Button className="w-full justify-start" variant="outline">
+                <Activity className="h-4 w-4 mr-2" />
+                View Transactions
+              </Button>
+              <Button className="w-full justify-start" variant="outline">
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Upload Images
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </AdminLayout>

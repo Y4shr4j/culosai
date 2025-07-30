@@ -1,10 +1,11 @@
 import passport from 'passport';
-import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-import { Strategy as FacebookStrategy } from 'passport-facebook';
+import { Strategy as GoogleStrategy, Profile as GoogleProfile } from 'passport-google-oauth20';
+import { Strategy as FacebookStrategy, Profile as FacebookProfile } from 'passport-facebook';
 import { UserModel, IUser, ISocialAccount } from '../models/user';
 import { generateToken } from '../utils/jwt';
 import { Request } from 'express';
 import dotenv from 'dotenv';
+import { VerifyCallback } from 'passport-oauth2';
 
 // Load environment variables
 dotenv.config();
@@ -17,7 +18,7 @@ declare global {
 }
 
 // Helper function to find or create user from social profile
-const findOrCreateUser = async (profile: any, provider: string): Promise<IUser> => {
+const findOrCreateUser = async (profile: GoogleProfile | FacebookProfile, provider: 'google' | 'facebook'): Promise<IUser> => {
   const { id, displayName, emails, photos } = profile;
   const email = emails?.[0]?.value || `${id}@${provider}.com`;
   const name = displayName || `${provider} User`;
@@ -81,7 +82,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       scope: ['profile', 'email'],
       passReqToCallback: true
     },
-    async (req, accessToken, refreshToken, profile, done) => {
+    async (req: Request, accessToken: string, refreshToken: string, profile: GoogleProfile, done: VerifyCallback) => {
       try {
         const user = await findOrCreateUser(profile, 'google');
         return done(null, user);
@@ -104,14 +105,15 @@ if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
   console.log('Facebook App ID:', process.env.FACEBOOK_APP_ID);
   console.log('Facebook App Secret length:', process.env.FACEBOOK_APP_SECRET?.length || 0);
   
-  passport.use(new FacebookStrategy({
+  const facebookStrategy = new FacebookStrategy(
+    {
       clientID: process.env.FACEBOOK_APP_ID,
       clientSecret: process.env.FACEBOOK_APP_SECRET,
       callbackURL: "http://localhost:5000/api/auth/facebook/callback",
       profileFields: ['id', 'emails', 'name', 'displayName', 'photos'],
       passReqToCallback: true
     },
-    async (req, accessToken, refreshToken, profile, done) => {
+    async (req: Request, accessToken: string, refreshToken: string, profile: FacebookProfile, done: VerifyCallback) => {
       try {
         const user = await findOrCreateUser(profile, 'facebook');
         return done(null, user);
@@ -119,19 +121,21 @@ if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
         return done(error as Error);
       }
     }
-  ));
+  );
+  
+  passport.use(facebookStrategy);
   console.log('✅ Facebook OAuth strategy configured successfully');
 } else {
   console.warn('Facebook OAuth not configured: Missing FACEBOOK_APP_ID or FACEBOOK_APP_SECRET environment variables');
 }
 
 // Serialize user into the sessions
-passport.serializeUser((user: any, done) => {
+passport.serializeUser((user: Express.User, done: (err: any, id?: unknown) => void) => {
   done(null, user.id);
 });
 
 // Deserialize user from the sessions
-passport.deserializeUser(async (id: string, done) => {
+passport.deserializeUser(async (id: string, done: (err: any, user?: Express.User | false | null) => void) => {
   try {
     const user = await UserModel.findById(id);
     done(null, user);

@@ -70,7 +70,7 @@ export default function AIImageGeneration() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const response = await api.get("/api/auth/me");
+        const response = await api.get("/auth/me");
         setUser(response.data);
       } catch (error) {
         console.error("Error fetching user:", error);
@@ -82,7 +82,7 @@ export default function AIImageGeneration() {
   useEffect(() => {
     const fetchTokens = async () => {
       try {
-        const response = await api.get("/api/auth/tokens");
+        const response = await api.get("/auth/tokens");
         setTokens(response.data.tokens);
       } catch (error) {
         console.error("Error fetching tokens:", error);
@@ -93,7 +93,7 @@ export default function AIImageGeneration() {
 
   const handleLogout = async () => {
     try {
-      await api.post("/api/auth/logout");
+              await api.post("/auth/logout");
       setUser(null);
       setTokens(null);
       window.location.href = "/login";

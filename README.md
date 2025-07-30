@@ -1,135 +1,133 @@
-# CulosAI 🤖✨
+# CulosAI Platform
 
-CulosAI is a full-stack application for generating AI content. It integrates with Stability AI for image creation and Runway ML for video generation. The project features a modern React frontend and is powered by a Node.js/Express backend with MongoDB.
+A full-stack AI-powered platform for generating, managing, and viewing AI images and videos, with admin controls, age verification, and token-based content unlocking.
+
+---
 
 ## Features
 
-  - **AI Image Generation**: Integrates with Stability AI.
-  - **AI Video Generation**: Integrates with Runway ML.
-  - **Secure Authentication**: Social login with Google & Facebook using Passport.js.
-  - **Cloud Storage**: Utilizes AWS S3 for scalable file storage.
-  - **Modern Tech Stack**: Built with TypeScript, Vite, React, Express, and Tailwind CSS for a fast and type-safe development experience.
-  - **Responsive UI**: A beautiful user interface built with Radix UI and shadcn/ui components.
+- **User Dashboard**: View, unlock, and download AI-generated images and videos
+- **Admin Panel**: Upload, manage, and blur/unblur images; only accessible to admin users
+- **Token System**: Users unlock blurred images using tokens (purchaseable)
+- **Age Verification**: Modal popup ensures users are 18+ before accessing content
+- **AWS S3 Integration**: Secure image storage and retrieval
+- **Role-based Access**: Admin/user separation with JWT authentication
+- **Responsive UI**: Modern, mobile-friendly React frontend
 
------
+---
 
 ## Tech Stack
 
-  - **Frontend**: React, TypeScript, Vite, Tailwind CSS, Radix UI
-  - **Backend**: Node.js, Express, TypeScript
-  - **Database**: MongoDB
-  - **Authentication**: Passport.js (Google & Facebook OAuth), JWT
-  - **File Storage**: AWS S3
-  - **AI Services**: Stability AI, Runway ML
+- **Frontend**: React, TypeScript, Tailwind CSS
+- **Backend**: Node.js, Express, TypeScript
+- **Database**: MongoDB (Mongoose)
+- **Storage**: AWS S3
+- **Authentication**: JWT, OAuth (Google, Facebook)
 
------
+---
 
 ## Getting Started
 
-Follow these instructions to get a local copy up and running.
-
 ### Prerequisites
 
-You will need the following installed on your machine:
+- Node.js (v16+ recommended)
+- npm or yarn
+- MongoDB Atlas or local MongoDB instance
+- AWS S3 bucket and IAM credentials
 
-  - Node.js (v18 or later)
-  - npm or yarn
-  - Git
-
-You will also need accounts and API keys from:
-
-  - MongoDB Atlas (for the connection URI)
-  - Amazon Web Services (for S3 bucket credentials)
-  - Stability AI
-  - Runway ML
-  - Google Cloud Platform & Facebook for Developers (for OAuth credentials)
-
-### Installation
-
-1.  **Clone the repository:**
-
-    ```bash
-    git clone <YOUR_REPOSITORY_URL>
-    cd <repository-folder>
-    ```
-
-2.  **Install project dependencies:**
-
-    ```bash
-    npm install
-    ```
-
-### Environment Setup
-
-1.  Create a file named `.env` in the project's **root directory**.
-
-2.  Copy the contents of the block below into your new `.env` file.
-
-3.  Replace all placeholder values (e.g., `<YOUR_MONGO_URI>`) with your actual credentials.
-
-    ```.env
-    # Server Configuration
-    PORT=5000
-    JWT_SECRET=<YOUR_SUPER_SECRET_JWT_KEY>
-    SESSION_SECRET=<YOUR_SUPER_SECRET_SESSION_KEY>
-
-    # Database
-    MONGO_URI=<YOUR_MONGODB_CONNECTION_STRING>
-
-    # AI Services
-    STABILITY_API_KEY=<YOUR_STABILITY_AI_API_KEY>
-    RUNWAY_API_KEY=<YOUR_RUNWAY_ML_API_KEY>
-
-    # Google OAuth
-    GOOGLE_CLIENT_ID=<YOUR_GOOGLE_CLIENT_ID>
-    GOOGLE_CLIENT_SECRET=<YOUR_GOOGLE_CLIENT_SECRET>
-
-    # Facebook OAuth
-    FACEBOOK_APP_ID=<YOUR_FACEBOOK_APP_ID>
-    FACEBOOK_APP_SECRET=<YOUR_FACEBOOK_APP_SECRET>
-
-    # General Config
-    OAUTH_CALLBACK_URL=http://localhost:5000/auth/google/callback
-    FRONTEND_URL=http://localhost:8080
-
-    # AWS S3 Configuration
-    AWS_ACCESS_KEY_ID=<YOUR_AWS_ACCESS_KEY_ID>
-    AWS_SECRET_ACCESS_KEY=<YOUR_AWS_SECRET_ACCESS_KEY>
-    AWS_REGION=<YOUR_AWS_S3_BUCKET_REGION>
-    AWS_S3_BUCKET=<YOUR_AWS_S3_BUCKET_NAME>
-    AWS_S3_UPLOAD_FOLDER=ChatImage
-    ```
-
-### Running the Application
-
-This project requires running the frontend and backend servers simultaneously in **two separate terminals**.
-
-#### Terminal 1: Start the Frontend 🖥️
-
-In your project's root directory, run the following command to start the React frontend:
+### 1. Clone the Repository
 
 ```bash
-npm run dev
+git clone <your-repo-url>
+cd <your-repo-folder>
 ```
 
-This will make the frontend available at `http://localhost:8080`.
+### 2. Setup Environment Variables
 
-#### Terminal 2: Start the Backend ⚙️
+#### Server (`server/.env`):
 
-In a new terminal window, start the backend Express server:
+```
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+AWS_ACCESS_KEY_ID=your_aws_access_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+AWS_REGION=us-east-2
+AWS_S3_BUCKET=your_bucket_name
+AWS_S3_UPLOAD_FOLDER=ChatImage
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+FACEBOOK_APP_ID=your_facebook_app_id
+FACEBOOK_APP_SECRET=your_facebook_app_secret
+```
+
+#### Client
+
+- No .env needed by default, but you can add one for custom API URLs if needed.
+
+### 3. Install Dependencies
+
+#### Server
 
 ```bash
 cd server
-npx ts-node src/app.ts
+npm install
 ```
 
-This will start your backend API server, which will run on `http://localhost:5000`.
+#### Client
 
------
+```bash
+cd ../client
+npm install
+```
 
-## Available Scripts
+### 4. Run the Application
 
-  - `npm run dev`: Starts the frontend development server.
-  - `npm run build`: Builds the client and server for production.
-  - `npm run start`: Starts the production server from the `dist` folder (after building).
-  - `npm run test`: Runs tests using Vitest.
+#### Start the Server
+
+```bash
+cd server
+npm run dev
+```
+
+#### Start the Client
+
+```bash
+cd ../client
+npm run dev
+```
+
+- Client runs on [http://localhost:8080](http://localhost:8080)
+- Server runs on [http://localhost:5000](http://localhost:5000)
+
+---
+
+## Usage
+
+- **Register/Login** as a user
+- **Verify Age** via popup modal (must be 18+)
+- **Browse Dashboard**: View and unlock images/videos
+- **Purchase Tokens**: Use tokens to unlock blurred images
+- **Admin Access**: If your account is admin, use the "Admin" button in the navbar to access the admin panel
+- **Admin Panel**: Upload, blur/unblur, and manage images
+
+---
+
+## Customization
+
+- **Styling**: Edit Tailwind classes in `client/` for custom branding
+- **Admin Users**: Set `isAdmin: true` in the MongoDB user document for admin access
+- **S3 Bucket**: Update bucket policy for CORS and cross-account access as needed
+
+---
+
+## Security Notes
+
+- Never commit your `.env` files or secrets to version control
+- Use HTTPS in production
+- Restrict S3 bucket access to only necessary IAM users
+
+---
+
+## License
+
+MIT License

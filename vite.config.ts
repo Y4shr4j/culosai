@@ -6,20 +6,20 @@ import path from "path";
 export default defineConfig({
   server: {
     host: "::",
-    port: 8080,
+    port: 8080, // Keep frontend on 8080
     proxy: {
-      // string shorthand: http://localhost:5173/foo -> http://localhost:5000/foo
+      // Proxy API requests to the backend server
       '/api': {
         target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false,
-      }
-    }
+      },
+    },
   },
   build: {
     outDir: "dist/spa",
   },
-  plugins: [react()],
+  plugins: [react()], // Remove expressPlugin
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./client"),
