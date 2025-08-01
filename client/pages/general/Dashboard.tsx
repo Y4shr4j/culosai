@@ -730,6 +730,41 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
             </Link>
+
+            {/* Chat with Characters Card */}
+            <Link to="/chat" className="w-full lg:w-auto">
+              <div className="flex flex-col items-center gap-3 p-6 md:p-8 bg-[#2A2A2A] rounded-[20px] cursor-pointer hover:bg-opacity-90 transition-colors w-full lg:w-auto">
+                <h2 className="text-culosai-cream font-norwester text-2xl md:text-[32px] text-center">
+                  Chat with Characters
+                </h2>
+                <div className="flex items-center gap-4">
+                  <div className="px-6 py-2 bg-culosai-accent-gold rounded-[25px]">
+                    <span className="text-culosai-dark-brown font-norwester text-xl md:text-2xl">
+                      chat
+                    </span>
+                  </div>
+                  <svg
+                    width="32"
+                    height="32"
+                    viewBox="0 0 32 32"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M16 2C8.268 2 2 8.268 2 16C2 23.732 8.268 30 16 30C23.732 30 30 23.732 30 16C30 8.268 23.732 2 16 2Z"
+                      stroke="#F5EDD0"
+                      strokeWidth="2"
+                    />
+                    <path
+                      d="M10 12H22M10 16H18M10 20H14"
+                      stroke="#F5EDD0"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </Link>
           </div>
 
           {/* Content Filters and Character Showcase */}

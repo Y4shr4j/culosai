@@ -6,14 +6,15 @@ import {
   FileText,
   Sparkles,
   DollarSign,
-  Activity,
   Circle,
   ChevronDown,
   ChevronRight,
   Image,
   Video,
   Users,
+  LogOut,
 } from "lucide-react";
+import { useAuth } from "../../src/contexts/AuthContext";
 
 interface AdminSidebarProps {
   className?: string;
@@ -40,11 +41,6 @@ const navigationItems = [
     href: "/admin/token-settings",
     icon: DollarSign,
   },
-  {
-    title: "Transactions",
-    href: "/admin/transactions",
-    icon: Activity,
-  },
 ];
 
 const categoriesItems = [
@@ -67,6 +63,7 @@ const categoriesItems = [
 
 export function AdminSidebar({ className }: AdminSidebarProps) {
   const location = useLocation();
+  const { logout } = useAuth();
   const isCategoriesActive = [
     "/admin/images",
     "/admin/videos",
@@ -79,11 +76,17 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
     if (isCategoriesActive) setIsCategoriesOpen(true);
   }, [isCategoriesActive]);
 
+  const handleLogout = () => {
+    logout();
+    // The logout function in AuthContext will handle the redirect to /login
+    // But we can override it to go to dashboard if needed
+    window.location.href = '/dashboard';
+  };
 
   return (
     <div
       className={cn(
-        "fixed left-0 top-0 h-screen w-[260px] bg-white border-r border-[#E5E8F1]",
+        "fixed left-0 top-0 h-screen w-[260px] bg-white border-r border-[#E5E8F1] flex flex-col",
         className,
       )}
     >
@@ -107,7 +110,7 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
       </div>
 
       {/* Navigation Items */}
-      <div className="px-[14px] space-y-2">
+      <div className="px-[14px] space-y-2 flex-1">
         {navigationItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.href;
@@ -134,7 +137,7 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
           );
         })}
 
-        {/* Categories Section with Dropdown */}
+        {/* Categories & Items Section */}
         <div>
           <button
             onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
@@ -150,7 +153,7 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
               strokeWidth={1.75}
             />
             <span className="flex-1 font-['Public_Sans'] text-[15px] leading-[22px] text-left">
-              Categories
+              Categories & Items
             </span>
             {isCategoriesOpen ? (
               <ChevronDown className="w-5 h-5 fill-[#0F172A]" />
@@ -159,7 +162,7 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
             )}
           </button>
 
-          {/* Categories Submenu */}
+          {/* Categories & Items Submenu */}
           {isCategoriesOpen && (
             <div className="mt-1 ml-6 space-y-1">
               {categoriesItems.map((item) => {
@@ -190,6 +193,22 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Logout Section */}
+      <div className="px-[14px] py-4 border-t border-[#E5E8F1]">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-2 px-4 py-[9px] rounded-md transition-colors text-red-600 hover:bg-red-50 hover:text-red-700"
+        >
+          <LogOut
+            className="w-[22px] h-[22px] stroke-current"
+            strokeWidth={1.75}
+          />
+          <span className="flex-1 font-['Public_Sans'] text-[15px] leading-[22px] text-left">
+            Logout
+          </span>
+        </button>
       </div>
     </div>
   );

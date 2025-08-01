@@ -15,6 +15,10 @@ import authRoutes from "./routes/auth.routes";
 import imageRoutes from './routes/image.routes';
 import paymentRoutes from './routes/payment.routes';
 import adminRoutes from './routes/admin.routes';
+import categoryRoutes from './routes/category.routes';
+import postRoutes from './routes/post.routes';
+import characterRoutes from './routes/character.routes';
+import chatRoutes from './routes/chat.routes';
 
 // Add MulterRequest interface for type safety
 interface MulterRequest extends Request {
@@ -61,6 +65,10 @@ app.use("/api/auth", authRoutes);
 app.use('/api/images', imageRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/posts', postRoutes);
+app.use('/api/characters', characterRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Add direct callback routes for OAuth (in case Google redirects to /auth instead of /api/auth)
 app.get("/auth/google/callback", passport.authenticate('google', { 

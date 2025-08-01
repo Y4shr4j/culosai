@@ -30,7 +30,7 @@ export default function Images() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get("/api/images");
+      const res = await api.get("/images");
       setImages(res.data.images || []);
     } catch (err: any) {
       setError("Failed to fetch images");
@@ -46,7 +46,7 @@ export default function Images() {
 
   const toggleBlur = async (imageId: string, currentBlur: boolean) => {
     try {
-      await api.put(`/api/images/${imageId}`, {
+      await api.put(`/images/${imageId}`, {
         isBlurred: !currentBlur
       });
       setImages(images.map(img => 
@@ -63,7 +63,7 @@ export default function Images() {
   const deleteImage = async (imageId: string) => {
     if (!window.confirm('Delete this image?')) return;
     try {
-      await api.delete(`/api/images/${imageId}`);
+      await api.delete(`/images/${imageId}`);
       setImages(images.filter(img => img._id !== imageId));
     } catch (err) {
       console.error('Delete error:', err);
@@ -81,7 +81,7 @@ export default function Images() {
       formData.append("file", file);
       formData.append("title", title);
       formData.append("isBlurred", String(isBlurred));
-      await api.post("/api/images/upload", formData, {
+      await api.post("/images/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setFile(null);
